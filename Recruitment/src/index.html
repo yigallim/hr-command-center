@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3.4.34/dist/vue.global.prod.js"></script>
+  </head>
+  <body class="bg-slate-50">
+    <div
+      class="fixed top-0 left-0 right-0 h-16 flex items-center px-6 bg-white z-[999] font-semibold text-black text-xl shadow-md"
+    >
+      Ragged&nbsp;<span class="text-orange-600">Coders</span>
+    </div>
+    <main class="mt-20 md:mx-[8%] lg:mx-[15%] duration-300" id="app">
+      <div class="m-4 mb-6 pt-12 text-center">
+        <h1 class="text-3xl font-semibold">Build Your Global Career With Ragged Coders</h1>
+      </div>
+      <div class="m-4 mb-8">
+        <input
+          type="text"
+          v-model="searchQuery"
+          placeholder="Search by position name"
+          class="p-2 border rounded w-full mb-4"
+        />
+        <div class="flex gap-2 mb-4">
+          <input
+            type="number"
+            v-model.number="minBudget"
+            placeholder="Minimum salary"
+            class="p-2 border rounded flex-1"
+          />
+          <input
+            type="number"
+            v-model.number="maxBudget"
+            placeholder="Maximum salary"
+            class="p-2 border rounded flex-1"
+          />
+        </div>
+      </div>
+      <div class="m-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div v-if="loading" class="text-center col-span-full">
+          <p class="text-xl font-semibold">Loading...</p>
+        </div>
+        <div
+          v-else
+          v-for="item in filteredData"
+          :key="item['Row ID']"
+          @click="openModal(item)"
+          class="p-4 bg-white shadow rounded cursor-pointer"
+        >
+          <h2 class="text-lg font-semibold mb-2">{{ item["Position Name"] }}</h2>
+          <p class="text-gray-700" v-if="item['Available Budget']">
+            Salary: RM{{ item["Available Budget"] }}
+          </p>
+          <p class="text-gray-700 truncate">Description: {{ item.Notes }}</p>
+        </div>
+      </div>
+
+      <!-- Modal -->
+      <div
+        v-if="showModal"
+        class="fixed inset-0 z-[1000] flex items-center justify-center bg-black bg-opacity-50"
+      >
+        <div class="bg-white p-6 rounded shadow-lg max-w-lg w-full">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-semibold">{{ selectedItem["Position Name"] }}</h2>
+            <button @click="closeModal" class="text-gray-700 text-xl">&times;</button>
+          </div>
+          <p class="text-gray-700 mb-4">Salary: RM{{ selectedItem["Available Budget"] }}</p>
+          <p class="text-gray-700 mb-8">{{ selectedItem.Notes }}</p>
+          <a :href="applyLink" target="_blank" class="bg-blue-500 text-white px-4 py-2 pt-1.5 rounded">Apply</a>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      const { createApp, ref, computed, onMounted } = Vue;
+
+      const app = createApp({
+        setup() {
+          const searchQuery = ref("");
+          const minBudget = ref(null);
+          const maxBudget = ref(null);
+          const data = ref([]);
+          const loading = ref(false);
+          const showModal = ref(false);
+          const selectedItem = ref(null);
+
+          function displayData(response) {
+            console.log("response", response);
+            data.value = response;
+            loading.value = false;
+          }
+
+          const fetchData = () => {
+            loading.value = true;
+            google.script.run.withSuccessHandler(displayData).getAppSheetData();
+          };
+
+          const filteredData = computed(() => {
+            return data.value.filter((item) => {
+              const matchesName = item["Position Name"]
+                .toLowerCase()
+                .includes(searchQuery.value.toLowerCase());
+              const matchesBudget =
+                (!minBudget.value || item["Available Budget"] >= minBudget.value) &&
+                (!maxBudget.value || item["Available Budget"] <= maxBudget.value);
+              return matchesName && matchesBudget && item.Status === "OPEN";
+            });
+          });
+
+          const openModal = (item) => {
+            selectedItem.value = item;
+            showModal.value = true;
+          };
+
+          const closeModal = () => {
+            showModal.value = false;
+          };
+
+          onMounted(fetchData);
+
+          const applyLink = computed(() => {
+            if (!selectedItem.value) return "#";
+            const formBaseUrl =
+              "https://docs.google.com/forms/d/e/1FAIpQLSe-MEQqAWqw6r4T-18-l0j3Ce6UFOU82jOEhchxv_LeGHae6w/viewform?usp=pp_url";
+            const entryId = "entry.1743821171"; // Replace with your form's actual entry ID for the position ID
+            return `${formBaseUrl}&${entryId}=${selectedItem.value["Id"]}`;
+          });
+
+          return {
+            searchQuery,
+            minBudget,
+            maxBudget,
+            filteredData,
+            loading,
+            showModal,
+            selectedItem,
+            openModal,
+            closeModal,
+            applyLink,
+          };
+        },
+      });
+
+      app.mount("#app");
+    </script>
+  </body>
+</html>
